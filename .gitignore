@@ -1,0 +1,83 @@
+# Xcode
+#
+build/
+DerivedData/
+*.xcworkspace
+*.xcuserdata
+*.xccheckout
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Swift Package Manager
+#
+Packages/
+.swiftpm/
+.build/
+
+# CocoaPods
+#
+Pods/
+Podfile.lock
+
+# Carthage
+#
+Carthage/Build/
+
+# Fastlane
+#
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# macOS
+#
+.DS_Store
+
+# Logs
+#
+*.log
+*.trace
+*.xcactivitylog
+
+# Node / npx / skills
+#
+node_modules/
+.npm/
+.npx/
+package-lock.json
+yarn.lock
+
+# Claude / Antigravity Skills (optional: only ignore caches, not project-specific skills)
+#
+.agent/cache/
+.cursor/cache/
+.claude/cache/
+.codex/cache/
+.github/cache/
+
+# Temporary files
+#
+*.swp
+*.tmp
+*.temp
+*.backup
+*.orig
+*.bak
+
+# Ignore personal files
+#
+.env
+*.env
+*.local
+
+# Derived AI skill folders (optional)
+#
+.agent/.temp/
+.claude/.temp/
+.cursor/.temp/
