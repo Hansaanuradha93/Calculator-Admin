@@ -1,7 +1,7 @@
 import Foundation
 import CoreLocation
 
-struct Device: Identifiable, Codable {
+struct Device: Identifiable, Codable, Hashable, Equatable {
     let id: String
     let name: String
     let latitude: Double
@@ -30,4 +30,10 @@ struct Geofence: Identifiable, Codable {
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
+}
+
+struct AdminUser: Identifiable, Codable {
+    let id: String
+    let name: String
+    let email: String
 }
