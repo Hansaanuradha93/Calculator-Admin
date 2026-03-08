@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		A17357E32F5DE4630064EC00 /* Calculator Admin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "Calculator Admin.app"; path = "/Users/hansawickramanayake/Code/iOS/Calculator Apps/Calculator Admin/build/Debug-iphoneos/Calculator Admin.app"; sourceTree = "<absolute>"; };
+		A17357FA2F5DF0990064EC00 /* Calculator Admin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Calculator Admin.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -33,6 +33,7 @@
 			isa = PBXGroup;
 			children = (
 				A17357E52F5DE4630064EC00 /* Calculator Admin */,
+				A17357FA2F5DF0990064EC00 /* Calculator Admin.app */,
 			);
 			sourceTree = "<group>";
 		};
@@ -58,7 +59,7 @@
 			packageProductDependencies = (
 			);
 			productName = "Calculator Admin";
-			productReference = A17357E32F5DE4630064EC00 /* Calculator Admin.app */;
+			productReference = A17357FA2F5DF0990064EC00 /* Calculator Admin.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
