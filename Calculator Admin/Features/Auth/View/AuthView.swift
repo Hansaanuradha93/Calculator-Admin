@@ -41,7 +41,7 @@ struct AuthView: View {
                 // Buttons
                 VStack(spacing: 12) {
                     Button {
-                        Task { await viewModel.signInWithApple() }
+                        Task { await print("Sign with apple") }
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "apple.logo")
