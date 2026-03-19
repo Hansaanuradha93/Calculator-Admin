@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A15F23412F6C557500344E00 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A15F23402F6C557500344E00 /* GoogleService-Info.plist */; };
 		A16614E42F6B1E120065F00C /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = A16614E32F6B1E120065F00C /* FirebaseAnalytics */; };
 		A16614E62F6B1E120065F00C /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A16614E52F6B1E120065F00C /* FirebaseAuth */; };
 		A16614E82F6B1E120065F00C /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = A16614E72F6B1E120065F00C /* FirebaseCore */; };
@@ -15,11 +16,10 @@
 		A16614EE2F6B1E120065F00C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A16614ED2F6B1E120065F00C /* FirebaseFirestore */; };
 		A16614F12F6B23AA0065F00C /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A16614F02F6B23AA0065F00C /* GoogleSignIn */; };
 		A16614F32F6B23AA0065F00C /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A16614F22F6B23AA0065F00C /* GoogleSignInSwift */; };
-		A16614F52F6B262E0065F00C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A16614F42F6B262E0065F00C /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A16614F42F6B262E0065F00C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		A15F23402F6C557500344E00 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		A17357FA2F5DF0990064EC00 /* Calculator Admin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Calculator Admin.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -53,7 +53,7 @@
 		A17357DA2F5DE4630064EC00 = {
 			isa = PBXGroup;
 			children = (
-				A16614F42F6B262E0065F00C /* GoogleService-Info.plist */,
+				A15F23402F6C557500344E00 /* GoogleService-Info.plist */,
 				A17357E52F5DE4630064EC00 /* Calculator Admin */,
 				A17357FA2F5DF0990064EC00 /* Calculator Admin.app */,
 			);
@@ -135,7 +135,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A16614F52F6B262E0065F00C /* GoogleService-Info.plist in Resources */,
+				A15F23412F6C557500344E00 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,6 +284,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Calculator-Admin-Info.plist";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to track device coordinates";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -317,6 +318,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Calculator-Admin-Info.plist";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to track device coordinates";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
