@@ -9,12 +9,20 @@ import SwiftUI
 import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
+import GoogleMaps
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
-        
+
+        // Read Google Maps API Key from Info.plist
+        if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleMapsAPIKey") as? String {
+            GMSServices.provideAPIKey(apiKey)
+        } else {
+            print("Error: GoogleMapsAPIKey not found in Info.plist")
+        }
+
         return true
     }
 }

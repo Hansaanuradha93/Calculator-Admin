@@ -48,8 +48,8 @@ struct AlertsView: View {
             .background(Color("BackgroundLight").ignoresSafeArea()) // Uses #f8f7f5
             .navigationTitle("Alerts Feed")
             .navigationBarTitleDisplayMode(.large)
-            .task {
-                await viewModel.loadAlerts()
+            .onAppear {
+                viewModel.loadAlerts()
             }
         }
     }

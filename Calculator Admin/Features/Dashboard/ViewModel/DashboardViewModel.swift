@@ -5,6 +5,7 @@ import MapKit
 @MainActor
 class DashboardViewModel: ObservableObject {
     @Published var devices: [Device] = []
+    private var streamTask: Task<Void, Never>?
 
     private let deviceService: DeviceServiceProtocol
 
@@ -12,11 +13,26 @@ class DashboardViewModel: ObservableObject {
         self.deviceService = deviceService
     }
 
-    func loadDevices() async {
-        do {
-            devices = try await deviceService.fetchDevices()
-        } catch {
-            print("Error loading devices: \(error)")
+    func loadDevices() {
+        streamTask?.cancel()
+        streamTask = Task {
+            for await updatedDevices in deviceService.devicesStream() {
+                self.devices = updatedDevices
+            }
         }
+    }
+    
+    func setWatchStatus(for deviceId: String, isWatching: Bool) {
+        Task {
+            do {
+                try await deviceService.setWatchStatus(for: deviceId, isBeingWatched: isWatching)
+            } catch {
+                print("Error setting watch status: \(error)")
+            }
+        }
+    }
+    
+    deinit {
+        streamTask?.cancel()
     }
 }

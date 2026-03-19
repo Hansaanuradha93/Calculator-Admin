@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 struct DeviceDetailView: View {
     let deviceId: String
@@ -54,28 +55,66 @@ struct DeviceDetailView: View {
                             Image(systemName: "location.viewfinder")
                                 .font(.system(size: 20))
                                 .foregroundColor(.orange)
-                            Text("Geofence Radius (m)")
+                            Text("Set Safe Zone")
                                 .font(.system(size: 16, weight: .semibold))
                         }
 
-                        TextField("Radius", value: $viewModel.geofenceRadius, format: .number)
-                            .keyboardType(.decimalPad)
-                            .padding()
-                            .background(Color(UIColor.secondarySystemBackground))
+                        // Mini-Map for selecting coordinates
+                        ZStack(alignment: .center) {
+                            Map(coordinateRegion: Binding(
+                                get: { 
+                                    MKCoordinateRegion(
+                                        center: viewModel.selectedCoordinate ?? device.coordinate,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                                    ) 
+                                },
+                                set: { newValue in
+                                    viewModel.selectedCoordinate = newValue.center
+                                }
+                            ))
+                            .frame(height: 200)
                             .cornerRadius(12)
+                            
+                            // Center pin marker
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundColor(.red)
+                                .offset(y: -16)
+                        }
 
-                        Button {
-                            Task {
-                                await viewModel.updateGeofence()
+                        HStack {
+                            Text("Radius (m):")
+                            TextField("Radius", value: $viewModel.geofenceRadius, format: .number)
+                                .keyboardType(.decimalPad)
+                                .padding(8)
+                                .background(Color(UIColor.secondarySystemBackground))
+                                .cornerRadius(8)
+                        }
+
+                        HStack(spacing: 12) {
+                            Button {
+                                viewModel.updateSafeZone(zoneType: "home")
+                            } label: {
+                                Text("Set Home")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                                    .background(Color.green)
+                                    .cornerRadius(12)
                             }
-                        } label: {
-                            Text("Update Geofence")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 50)
-                                .background(Color.orange)
-                                .cornerRadius(12)
+
+                            Button {
+                                viewModel.updateSafeZone(zoneType: "workplace")
+                            } label: {
+                                Text("Set Workplace")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                                    .background(Color.orange)
+                                    .cornerRadius(12)
+                            }
                         }
                     }
                     .padding()
@@ -92,8 +131,8 @@ struct DeviceDetailView: View {
         .background(Color("BackgroundLight").ignoresSafeArea()) // Uses #f8f7f5
         .navigationTitle("Device Details")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await viewModel.loadDevice(id: deviceId)
+        .onAppear {
+            viewModel.loadDevice(id: deviceId)
         }
     }
 }

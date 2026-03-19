@@ -1,5 +1,4 @@
 import SwiftUI
-import MapKit
 
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
@@ -8,36 +7,38 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
-                Map(selection: $selectedDevice) {
-                    ForEach(viewModel.devices) { device in
-                        Annotation(device.name, coordinate: device.coordinate) {
-                            Image(systemName: "iphone.circle.fill")
-                                .resizable()
-                                .frame(width: 32, height: 32)
-                                .foregroundColor(.orange)
-                                .background(Color.white)
-                                .clipShape(Circle())
-                        }
-                        .tag(device)
-                    }
-                }
-                .ignoresSafeArea(edges: .top)
+                // Use the Google Maps wrapper
+                GoogleMapView(devices: viewModel.devices, selectedDevice: $selectedDevice)
+                    .ignoresSafeArea(edges: .top)
 
                 // Overlay for Selected Device
-                if let device = selectedDevice ?? viewModel.devices.first {
-                    VStack(alignment: .leading, spacing: 6) {
+                if let device = selectedDevice {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Device ID: \(device.id)")
                             .font(.system(size: 18, weight: .bold, design: .default))
                             .foregroundColor(.primary)
 
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(device.status == "Active" ? Color.green : Color.red)
+                                .fill(device.status.contains("Safe") ? Color.green : Color.red)
                                 .frame(width: 8, height: 8)
-                            Text("\(device.status) • Last seen: 2m ago")
+                            Text("\(device.status)")
                                 .font(.system(size: 14, weight: .regular))
                                 .foregroundColor(.secondary)
                         }
+                        
+                        Divider()
+                        
+                        Toggle(isOn: Binding(
+                            get: { device.isBeingWatched ?? false },
+                            set: { newValue in
+                                viewModel.setWatchStatus(for: device.id, isWatching: newValue)
+                            }
+                        )) {
+                            Text("Live Track User")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .tint(.red)
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -49,8 +50,14 @@ struct DashboardView: View {
             }
             .navigationTitle("Device Map")
             .navigationBarTitleDisplayMode(.inline)
-            .task {
-                await viewModel.loadDevices()
+            .onAppear {
+                viewModel.loadDevices()
+            }
+            .onChange(of: viewModel.devices) { newDevices in
+                if let selected = selectedDevice,
+                   let updated = newDevices.first(where: { $0.id == selected.id }) {
+                    selectedDevice = updated
+                }
             }
         }
     }

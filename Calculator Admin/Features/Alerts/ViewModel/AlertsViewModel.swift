@@ -4,6 +4,7 @@ import Combine
 @MainActor
 class AlertsViewModel: ObservableObject {
     @Published var alerts: [Alert] = []
+    private var streamTask: Task<Void, Never>?
 
     private let alertService: AlertServiceProtocol
 
@@ -11,11 +12,18 @@ class AlertsViewModel: ObservableObject {
         self.alertService = alertService
     }
 
-    func loadAlerts() async {
-        do {
-            alerts = try await alertService.fetchAlerts()
-        } catch {
-            print("Error loading alerts: \(error)")
+    func loadAlerts() {
+        alertService.startMonitoring()
+        streamTask?.cancel()
+        streamTask = Task {
+            for await updatedAlerts in alertService.alertsStream() {
+                self.alerts = updatedAlerts
+            }
         }
+    }
+    
+    deinit {
+        streamTask?.cancel()
+        alertService.stopMonitoring()
     }
 }

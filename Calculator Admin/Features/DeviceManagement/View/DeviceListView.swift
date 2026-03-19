@@ -34,7 +34,7 @@ struct DeviceListView: View {
 
                                 // Status Dot
                                 Circle()
-                                    .fill(device.status == "Active" ? Color.green : Color.red)
+                                    .fill(device.status.contains("Safe") ? Color.green : Color.red)
                                     .frame(width: 10, height: 10)
                             }
                             .padding()
@@ -49,8 +49,8 @@ struct DeviceListView: View {
             .background(Color("BackgroundLight").ignoresSafeArea()) // Uses #f8f7f5
             .navigationTitle("Devices")
             .navigationBarTitleDisplayMode(.large)
-            .task {
-                await viewModel.loadDevices()
+            .onAppear {
+                viewModel.loadDevices()
             }
         }
     }
