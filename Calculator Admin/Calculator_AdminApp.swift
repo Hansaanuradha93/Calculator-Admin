@@ -1,15 +1,24 @@
-//
-//  Calculator_AdminApp.swift
-//  Calculator Admin
-//
-//  Created by Hansa Wickramanayake on 2026-03-08.
-//
-
 import SwiftUI
 import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
 import GoogleMaps
+import Combine
+
+// MARK: - App-Wide Navigation State
+class AppNavigation: ObservableObject {
+    @Published var selectedTab: AppTab = .map
+    @Published var focusedDeviceId: String?
+
+    func navigateToMap(focusingDevice deviceId: String) {
+        focusedDeviceId = deviceId
+        selectedTab = .map
+    }
+}
+
+enum AppTab: Hashable {
+    case map, devices, alerts, settings
+}
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
@@ -32,11 +41,13 @@ struct Calculator_AdminApp: App {
     // Register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var appNavigation = AppNavigation()
 
     var body: some Scene {
         WindowGroup {
             if authViewModel.isAuthenticated {
                 MainTabView()
+                    .environmentObject(appNavigation)
             } else {
                 AuthView(viewModel: authViewModel)
                     .onOpenURL { url in
@@ -48,27 +59,26 @@ struct Calculator_AdminApp: App {
 }
 
 struct MainTabView: View {
+    @EnvironmentObject var navigation: AppNavigation
+
     var body: some View {
-        TabView {
-            DashboardView()
-                .tabItem {
-                    Label("Map", systemImage: "map")
-                }
+        TabView(selection: $navigation.selectedTab) {
+            Tab("Map", systemImage: "map", value: .map) {
+                DashboardView()
+            }
 
-            DeviceListView()
-                .tabItem {
-                    Label("Devices", systemImage: "iphone")
-                }
+            Tab("Devices", systemImage: "iphone", value: .devices) {
+                DeviceListView()
+            }
 
-            AlertsView()
-                .tabItem {
-                    Label("Alerts", systemImage: "bell")
-                }
+            Tab("Alerts", systemImage: "bell", value: .alerts) {
+                AlertsView()
+            }
 
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
+            Tab("Settings", systemImage: "gearshape", value: .settings) {
+                SettingsView()
+            }
         }
     }
 }
+
