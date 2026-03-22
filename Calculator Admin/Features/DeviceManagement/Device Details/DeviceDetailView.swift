@@ -194,6 +194,7 @@ struct SafeZoneCard: View {
     let device: Device
     @ObservedObject var viewModel: DeviceDetailViewModel
     @State private var isMapExpanded = false
+    @FocusState private var isSearchFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -202,27 +203,80 @@ struct SafeZoneCard: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.orange)
 
-            // Address Search Bar
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                
-                TextField("Search address or place…", text: $viewModel.addressQuery)
-                    .font(.system(size: 15))
-                    .submitLabel(.search)
-                    .onSubmit {
-                        viewModel.searchAddress()
+            // Address Search Bar + Suggestions
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+
+                    TextField("Search address or place…", text: $viewModel.addressQuery)
+                        .font(.system(size: 15))
+                        .focused($isSearchFocused)
+                        .autocorrectionDisabled()
+
+                    if viewModel.placesService.isSearching {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else if !viewModel.addressQuery.isEmpty {
+                        Button {
+                            viewModel.addressQuery = ""
+                            viewModel.placesService.clearSuggestions()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                
-                if viewModel.isGeocodingLoading {
-                    ProgressView()
-                        .scaleEffect(0.8)
+                }
+                .padding(12)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(.rect(cornerRadius: 12))
+
+                // Suggestions dropdown
+                if !viewModel.placesService.suggestions.isEmpty && isSearchFocused {
+                    VStack(spacing: 0) {
+                        ForEach(viewModel.placesService.suggestions) { suggestion in
+                            Button {
+                                viewModel.selectSuggestion(suggestion)
+                                isSearchFocused = false
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "mappin.circle.fill")
+                                        .foregroundStyle(.orange)
+                                        .font(.system(size: 18))
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(suggestion.title)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+
+                                        if !suggestion.subtitle.isEmpty {
+                                            Text(suggestion.subtitle)
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                            }
+
+                            if suggestion.id != viewModel.placesService.suggestions.last?.id {
+                                Divider()
+                                    .padding(.leading, 44)
+                            }
+                        }
+                    }
+                    .background(Color.primary.opacity(0.04))
+                    .clipShape(.rect(cornerRadius: 12))
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .padding(12)
-            .background(Color.primary.opacity(0.06))
-            .clipShape(.rect(cornerRadius: 12))
-            
+            .animation(.easeInOut(duration: 0.2), value: viewModel.placesService.suggestions.count)
+
             // Resolved address display
             if !viewModel.resolvedAddress.isEmpty {
                 HStack(spacing: 8) {
@@ -251,7 +305,7 @@ struct SafeZoneCard: View {
                     .clipShape(.rect(cornerRadius: 16))
                     .animation(.easeInOut(duration: 0.3), value: isMapExpanded)
                 }
-                
+
                 // Expand / Collapse button
                 Button {
                     isMapExpanded.toggle()
@@ -266,9 +320,9 @@ struct SafeZoneCard: View {
                     .padding(.vertical, 10)
                 }
             }
-            
+
             // Hint text
-            Text("Tap on the map or drag the pin to set the center. Search an address above for precision.")
+            Text("Tap the map or drag the pin to set the center. Search above for a precise address.")
                 .font(.system(size: 12))
                 .foregroundStyle(.tertiary)
 
@@ -278,16 +332,16 @@ struct SafeZoneCard: View {
                     Label("Radius", systemImage: "arrow.left.and.right.circle.fill")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(.secondary)
-                    
+
                     Spacer()
-                    
+
                     Text(viewModel.formattedRadius)
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
                         .foregroundStyle(.orange)
                         .contentTransition(.numericText())
                         .animation(.snappy, value: viewModel.geofenceRadius)
                 }
-                
+
                 Slider(value: $viewModel.geofenceRadius, in: 50...2000, step: 25) {
                     Text("Radius")
                 } minimumValueLabel: {
