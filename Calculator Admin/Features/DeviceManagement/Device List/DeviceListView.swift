@@ -2,10 +2,6 @@ import SwiftUI
 
 struct DeviceListView: View {
     @StateObject private var viewModel = DeviceListViewModel()
-    @State private var searchText = ""
-    @State private var selectedTab = "All"
-    
-    let tabs = ["All", "Connected", "Idle", "Offline"]
     
     var body: some View {
         NavigationStack {
@@ -18,7 +14,7 @@ struct DeviceListView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.gray)
-                        TextField("Search by device name or ID...", text: $searchText)
+                        TextField("Search by device name or ID...", text: $viewModel.searchText)
                             .foregroundColor(.white)
                     }
                     .padding(14)
@@ -30,19 +26,19 @@ struct DeviceListView: View {
                     // Tabs
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 24) {
-                            ForEach(tabs, id: \.self) { tab in
+                            ForEach(viewModel.tabs, id: \.self) { tab in
                                 VStack(spacing: 8) {
                                     Text(tab)
-                                        .font(.system(size: 15, weight: selectedTab == tab ? .semibold : .medium))
-                                        .foregroundColor(selectedTab == tab ? .orange : .gray)
+                                        .font(.system(size: 15, weight: viewModel.selectedTab == tab ? .semibold : .medium))
+                                        .foregroundColor(viewModel.selectedTab == tab ? .orange : .gray)
                                     
                                     Rectangle()
-                                        .fill(selectedTab == tab ? Color.orange : Color.clear)
+                                        .fill(viewModel.selectedTab == tab ? Color.orange : Color.clear)
                                         .frame(height: 2)
                                 }
                                 .onTapGesture {
                                     withAnimation(.easeInOut) {
-                                        selectedTab = tab
+                                        viewModel.selectTab(tab)
                                     }
                                 }
                             }
@@ -58,7 +54,7 @@ struct DeviceListView: View {
                     // Device List
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            ForEach(filteredDevices) { device in
+                            ForEach(viewModel.filteredDevices) { device in
                                 NavigationLink(destination: DeviceDetailView(deviceId: device.id)) {
                                     DeviceRowView(device: device)
                                 }
@@ -78,24 +74,6 @@ struct DeviceListView: View {
             }
         }
     }
-    
-    var filteredDevices: [Device] {
-        var filtered = viewModel.devices
-        if searchText.isEmpty == false {
-            filtered = filtered.filter { $0.name.lowercased().contains(searchText.lowercased()) || $0.id.lowercased().contains(searchText.lowercased()) }
-        }
-        
-        switch selectedTab {
-            case "Connected":
-                return filtered.filter { $0.status == "Active" }
-            case "Idle":
-                return filtered.filter { $0.status == "Idle" }
-            case "Offline":
-                return filtered.filter { $0.status == "Inactive" }
-            default:
-                return filtered
-        }
-    }
 }
 
 struct DeviceRowView: View {
@@ -112,7 +90,7 @@ struct DeviceRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Placeholder for device image
+            // Device image
             ZStack {
                 Circle()
                     .fill(Color.white)
@@ -130,6 +108,8 @@ struct DeviceRowView: View {
                 Text("ID: \(device.id)")
                     .font(.system(size: 13))
                     .foregroundColor(.gray)
+                    .frame(alignment: .leading)
+                    .multilineTextAlignment(.leading)
                 
                 HStack(spacing: 6) {
                     Circle()
@@ -148,11 +128,7 @@ struct DeviceRowView: View {
                 .foregroundColor(.gray)
         }
         .padding()
-        .background(Color(red: 0.11, green: 0.11, blue: 0.12)) // Dark rounded background
+        .background(Color(.darkGray))
         .clipShape(RoundedRectangle(cornerRadius: 36))
-        .overlay(
-            RoundedRectangle(cornerRadius: 36)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
-        )
     }
 }
