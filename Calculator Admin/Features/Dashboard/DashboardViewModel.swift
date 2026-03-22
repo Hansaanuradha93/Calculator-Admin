@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import MapKit
 
 @MainActor
 class DashboardViewModel: ObservableObject {
@@ -21,7 +20,7 @@ class DashboardViewModel: ObservableObject {
             }
         }
     }
-    
+
     func setWatchStatus(for deviceId: String, isWatching: Bool) {
         Task {
             do {
@@ -31,7 +30,17 @@ class DashboardViewModel: ObservableObject {
             }
         }
     }
-    
+
+    // MARK: - Computed Counts
+
+    var safeDeviceCount: Int {
+        devices.filter { $0.currentSafeZone != nil && $0.currentSafeZone != "none" }.count
+    }
+
+    var liveTrackCount: Int {
+        devices.filter { $0.currentSafeZone == "none" || $0.currentSafeZone == nil }.count
+    }
+
     deinit {
         streamTask?.cancel()
     }
