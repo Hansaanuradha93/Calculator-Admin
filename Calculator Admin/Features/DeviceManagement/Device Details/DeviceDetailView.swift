@@ -21,7 +21,7 @@ struct DeviceDetailView: View {
         .onAppear {
             viewModel.loadDevice(id: deviceId)
         }
-        .alert("Safe Zone Saved", isPresented: $viewModel.showSaveConfirmation) { }
+        .alert("\(viewModel.savedZoneType ?? "Safe Zone") Zone Saved", isPresented: $viewModel.showSaveConfirmation) { }
     }
 }
 
@@ -36,7 +36,7 @@ struct DeviceDetailContentView: View {
             VStack(spacing: 20) {
                 DeviceHeaderCard(device: device)
                 DeviceStatsCard(device: device)
-                SafeZoneCard(device: device, viewModel: viewModel)
+                SafeZoneCard(device: device, viewModel: viewModel, homeZone: viewModel.homeZone, workZone: viewModel.workZone)
             }
             .padding()
         }
@@ -193,8 +193,21 @@ struct StatTile: View {
 struct SafeZoneCard: View {
     let device: Device
     @ObservedObject var viewModel: DeviceDetailViewModel
+    @ObservedObject var homeZone: ZoneEditorState
+    @ObservedObject var workZone: ZoneEditorState
     @State private var isMapExpanded = false
     @FocusState private var isSearchFocused: Bool
+
+    private var zone: ZoneEditorState { viewModel.selectedZoneType == .home ? homeZone : workZone }
+    private var accentColor: Color { viewModel.selectedZoneType.accentColor }
+
+    private var addressQueryBinding: Binding<String> {
+        viewModel.selectedZoneType == .home ? $homeZone.addressQuery : $workZone.addressQuery
+    }
+
+    private var radiusBinding: Binding<Double> {
+        viewModel.selectedZoneType == .home ? $homeZone.radius : $workZone.radius
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -203,13 +216,41 @@ struct SafeZoneCard: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.orange)
 
+            // Home / Workplace Segmented Picker
+            Picker("Zone Type", selection: $viewModel.selectedZoneType) {
+                ForEach(ZoneType.allCases) { type in
+                    Label(type.label, systemImage: type.icon)
+                        .tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: viewModel.selectedZoneType) {
+                // Clear search suggestions when switching tabs
+                viewModel.placesService.clearSuggestions()
+                isSearchFocused = false
+            }
+
+            // Status indicator for current zone
+            HStack(spacing: 8) {
+                Image(systemName: zone.isConfigured ? "checkmark.circle.fill" : "circle.dashed")
+                    .foregroundStyle(zone.isConfigured ? accentColor : .secondary)
+                Text(zone.isConfigured ? "\(viewModel.selectedZoneType.label) zone is configured" : "\(viewModel.selectedZoneType.label) zone not set")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(zone.isConfigured ? .primary : .secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(zone.isConfigured ? accentColor.opacity(0.08) : Color.primary.opacity(0.04))
+            .clipShape(.rect(cornerRadius: 10))
+
             // Address Search Bar + Suggestions
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
 
-                    TextField("Search address or place…", text: $viewModel.addressQuery)
+                    TextField("Search address or place…", text: addressQueryBinding)
                         .font(.system(size: 15))
                         .focused($isSearchFocused)
                         .autocorrectionDisabled()
@@ -217,9 +258,9 @@ struct SafeZoneCard: View {
                     if viewModel.placesService.isSearching {
                         ProgressView()
                             .scaleEffect(0.8)
-                    } else if !viewModel.addressQuery.isEmpty {
+                    } else if !zone.addressQuery.isEmpty {
                         Button {
-                            viewModel.addressQuery = ""
+                            zone.addressQuery = ""
                             viewModel.placesService.clearSuggestions()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
@@ -241,7 +282,7 @@ struct SafeZoneCard: View {
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "mappin.circle.fill")
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(accentColor)
                                         .font(.system(size: 18))
 
                                     VStack(alignment: .leading, spacing: 2) {
@@ -278,35 +319,35 @@ struct SafeZoneCard: View {
             .animation(.easeInOut(duration: 0.2), value: viewModel.placesService.suggestions.count)
 
             // Resolved address display
-            if !viewModel.resolvedAddress.isEmpty {
+            if !zone.resolvedAddress.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "mappin.and.ellipse")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(accentColor)
                         .font(.system(size: 14))
-                    Text(viewModel.resolvedAddress)
+                    Text(zone.resolvedAddress)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
             }
 
-            // Interactive Google Map with expand toggle
+            // Interactive Google Map
             VStack(spacing: 0) {
-                if let coord = viewModel.selectedCoordinate {
+                if let coord = zone.coordinate {
                     SafeZoneMapView(
                         selectedCoordinate: Binding(
-                            get: { viewModel.selectedCoordinate ?? device.coordinate },
+                            get: { zone.coordinate ?? device.coordinate },
                             set: { viewModel.onMapCoordinateChanged($0) }
                         ),
-                        radius: viewModel.geofenceRadius,
+                        radius: zone.radius,
                         initialCenter: coord
                     )
                     .frame(height: isMapExpanded ? 400 : 220)
                     .clipShape(.rect(cornerRadius: 16))
                     .animation(.easeInOut(duration: 0.3), value: isMapExpanded)
+                    .id(viewModel.selectedZoneType) // Force map recreation on tab switch
                 }
 
-                // Expand / Collapse button
                 Button {
                     isMapExpanded.toggle()
                 } label: {
@@ -315,14 +356,14 @@ struct SafeZoneCard: View {
                         Text(isMapExpanded ? "Collapse Map" : "Expand Map")
                     }
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(accentColor)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                 }
             }
 
             // Hint text
-            Text("Tap the map or drag the pin to set the center. Search above for a precise address.")
+            Text("Tap the map or drag the pin to set the \(viewModel.selectedZoneType.label.lowercased()) center.")
                 .font(.system(size: 12))
                 .foregroundStyle(.tertiary)
 
@@ -335,14 +376,14 @@ struct SafeZoneCard: View {
 
                     Spacer()
 
-                    Text(viewModel.formattedRadius)
+                    Text(zone.formattedRadius)
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(accentColor)
                         .contentTransition(.numericText())
-                        .animation(.snappy, value: viewModel.geofenceRadius)
+                        .animation(.snappy, value: zone.radius)
                 }
 
-                Slider(value: $viewModel.geofenceRadius, in: 50...2000, step: 25) {
+                Slider(value: radiusBinding, in: 50...2000, step: 25) {
                     Text("Radius")
                 } minimumValueLabel: {
                     Text("50m")
@@ -353,33 +394,23 @@ struct SafeZoneCard: View {
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
-                .tint(.orange)
+                .tint(accentColor)
             }
             .padding(14)
             .background(Color.primary.opacity(0.04))
             .clipShape(.rect(cornerRadius: 14))
 
-            // Action Buttons
-            HStack(spacing: 12) {
-                Button("Set Home", systemImage: "house.fill", action: {
-                    viewModel.updateSafeZone(zoneType: "home")
-                })
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(Color.green.gradient)
-                .clipShape(.rect(cornerRadius: 14))
-
-                Button("Set Workplace", systemImage: "building.2.fill", action: {
-                    viewModel.updateSafeZone(zoneType: "workplace")
-                })
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(Color.orange.gradient)
-                .clipShape(.rect(cornerRadius: 14))
+            // Save Button — contextual to active zone
+            Button {
+                viewModel.saveActiveZone()
+            } label: {
+                Label("Save \(viewModel.selectedZoneType.label)", systemImage: viewModel.selectedZoneType.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(accentColor.gradient)
+                    .clipShape(.rect(cornerRadius: 14))
             }
         }
         .padding()

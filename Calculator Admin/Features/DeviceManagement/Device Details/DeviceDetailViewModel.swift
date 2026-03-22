@@ -2,16 +2,90 @@ import Foundation
 import Combine
 import CoreLocation
 
+// MARK: - Zone Type
+
+enum ZoneType: String, CaseIterable, Identifiable {
+    case home
+    case workplace
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .home: return "Home"
+        case .workplace: return "Workplace"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: return "house.fill"
+        case .workplace: return "building.2.fill"
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .home: return .green
+        case .workplace: return .orange
+        }
+    }
+}
+
+import SwiftUI
+
+// MARK: - Per-Zone State
+
+@MainActor
+class ZoneEditorState: ObservableObject {
+    let zoneType: ZoneType
+
+    @Published var coordinate: CLLocationCoordinate2D?
+    @Published var radius: Double = 150.0
+    @Published var addressQuery = ""
+    @Published var resolvedAddress = ""
+    @Published var isConfigured = false
+
+    init(zoneType: ZoneType) {
+        self.zoneType = zoneType
+    }
+
+    /// Load existing safe zone data from a device
+    func loadFromDevice(_ device: Device) {
+        let existingZone: SafeZone? = zoneType == .home ? device.home : device.workplace
+
+        if let zone = existingZone {
+            coordinate = zone.coordinate
+            radius = zone.radius
+            isConfigured = true
+        } else {
+            // Default to device location if no zone configured
+            if coordinate == nil {
+                coordinate = device.coordinate
+            }
+            isConfigured = false
+        }
+    }
+
+    var formattedRadius: String {
+        if radius >= 1000 {
+            return String(format: "%.1f km", radius / 1000)
+        }
+        return String(format: "%.0f m", radius)
+    }
+}
+
+// MARK: - ViewModel
+
 @MainActor
 class DeviceDetailViewModel: ObservableObject {
     @Published var device: Device?
-    @Published var geofenceRadius: Double = 150.0
-    @Published var selectedCoordinate: CLLocationCoordinate2D?
-    @Published var addressQuery = ""
-    @Published var resolvedAddress = ""
+    @Published var selectedZoneType: ZoneType = .home
     @Published var showSaveConfirmation = false
     @Published var savedZoneType: String?
 
+    let homeZone = ZoneEditorState(zoneType: .home)
+    let workZone = ZoneEditorState(zoneType: .workplace)
     let placesService = PlacesSearchService()
 
     private var streamTask: Task<Void, Never>?
@@ -27,10 +101,20 @@ class DeviceDetailViewModel: ObservableObject {
         setupSearchDebounce()
     }
 
+    /// The currently active zone editor based on the selected tab
+    var activeZone: ZoneEditorState {
+        selectedZoneType == .home ? homeZone : workZone
+    }
+
     // MARK: - Live Search Debounce
 
     private func setupSearchDebounce() {
-        searchDebounce = $addressQuery
+        // We observe the active zone's address query
+        searchDebounce = $selectedZoneType
+            .combineLatest(homeZone.$addressQuery, workZone.$addressQuery)
+            .map { type, homeQuery, workQuery in
+                type == .home ? homeQuery : workQuery
+            }
             .debounce(for: .milliseconds(350), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] query in
@@ -41,8 +125,9 @@ class DeviceDetailViewModel: ObservableObject {
     // MARK: - Place Selection
 
     func selectSuggestion(_ suggestion: PlaceSuggestion) {
-        addressQuery = suggestion.title
-        resolvedAddress = [suggestion.title, suggestion.subtitle]
+        let zone = activeZone
+        zone.addressQuery = suggestion.title
+        zone.resolvedAddress = [suggestion.title, suggestion.subtitle]
             .filter { !$0.isEmpty }
             .joined(separator: ", ")
 
@@ -50,7 +135,7 @@ class DeviceDetailViewModel: ObservableObject {
 
         Task {
             if let coordinate = await placesService.resolve(suggestion) {
-                selectedCoordinate = coordinate
+                zone.coordinate = coordinate
             }
         }
     }
@@ -62,22 +147,23 @@ class DeviceDetailViewModel: ObservableObject {
         streamTask = Task {
             for await updatedDevice in deviceService.deviceStream(id: id) {
                 self.device = updatedDevice
-                if selectedCoordinate == nil {
-                    selectedCoordinate = updatedDevice.coordinate
-                    reverseGeocode(updatedDevice.coordinate)
-                }
+                homeZone.loadFromDevice(updatedDevice)
+                workZone.loadFromDevice(updatedDevice)
             }
         }
     }
 
-    // MARK: - Reverse Geocoding (Google Geocoding API)
+    // MARK: - Map Coordinate Changed (user tapped or dragged)
 
     func onMapCoordinateChanged(_ coordinate: CLLocationCoordinate2D) {
-        selectedCoordinate = coordinate
+        activeZone.coordinate = coordinate
         reverseGeocode(coordinate)
     }
 
+    // MARK: - Reverse Geocoding (Google API)
+
     private func reverseGeocode(_ coordinate: CLLocationCoordinate2D) {
+        let zone = activeZone
         Task {
             let lat = coordinate.latitude
             let lng = coordinate.longitude
@@ -90,7 +176,7 @@ class DeviceDetailViewModel: ObservableObject {
                 let response = try JSONDecoder().decode(GeocodingResponse.self, from: data)
 
                 if let firstResult = response.results.first {
-                    self.resolvedAddress = firstResult.formattedAddress
+                    zone.resolvedAddress = firstResult.formattedAddress
                 }
             } catch {
                 print("Reverse geocode error: \(error.localizedDescription)")
@@ -98,35 +184,27 @@ class DeviceDetailViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Safe Zone
+    // MARK: - Save Safe Zone
 
-    func updateSafeZone(zoneType: String) {
-        guard let deviceId = device?.id, let coord = selectedCoordinate else { return }
+    func saveActiveZone() {
+        let zone = activeZone
+        guard let deviceId = device?.id, let coord = zone.coordinate else { return }
 
         let safeZone = SafeZone(
             latitude: coord.latitude,
             longitude: coord.longitude,
-            radius: geofenceRadius
+            radius: zone.radius
         )
 
         Task {
             do {
-                try await deviceService.updateSafeZone(for: deviceId, zoneType: zoneType, safeZone: safeZone)
-                savedZoneType = zoneType
+                try await deviceService.updateSafeZone(for: deviceId, zoneType: zone.zoneType.rawValue, safeZone: safeZone)
+                savedZoneType = zone.zoneType.label
                 showSaveConfirmation = true
             } catch {
-                print("Error updating \(zoneType): \(error)")
+                print("Error updating \(zone.zoneType.rawValue): \(error)")
             }
         }
-    }
-
-    // MARK: - Radius Helpers
-
-    var formattedRadius: String {
-        if geofenceRadius >= 1000 {
-            return String(format: "%.1f km", geofenceRadius / 1000)
-        }
-        return String(format: "%.0f m", geofenceRadius)
     }
 
     deinit {
@@ -135,7 +213,7 @@ class DeviceDetailViewModel: ObservableObject {
     }
 }
 
-// MARK: - Google Geocoding Response Models
+// MARK: - Google Geocoding Response
 
 private struct GeocodingResponse: Decodable {
     let results: [GeocodingResult]
