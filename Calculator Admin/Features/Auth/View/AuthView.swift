@@ -5,7 +5,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground) // Need to define #f8f7f5 or use standard SystemGroupedBackground
+            Color(.systemBackground)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
