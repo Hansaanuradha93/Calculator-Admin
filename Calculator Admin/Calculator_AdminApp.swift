@@ -79,6 +79,9 @@ struct MainTabView: View {
                 SettingsView()
             }
         }
+        .onAppear {
+            AlertService.shared.startMonitoring()
+        }
     }
 }
 

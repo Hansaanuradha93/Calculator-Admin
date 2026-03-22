@@ -8,7 +8,7 @@ class AlertsViewModel: ObservableObject {
 
     private let alertService: AlertServiceProtocol
 
-    init(alertService: AlertServiceProtocol = AlertService()) {
+    init(alertService: AlertServiceProtocol = AlertService.shared) {
         self.alertService = alertService
     }
 

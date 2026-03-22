@@ -4,6 +4,7 @@ import GoogleMaps
 struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @EnvironmentObject var navigation: AppNavigation
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedDevice: Device?
     @State private var showDeviceList = false
 
@@ -72,6 +73,12 @@ struct DashboardView: View {
                let device = viewModel.devices.first(where: { $0.id == deviceId }) {
                 selectedDevice = device
                 navigation.focusedDeviceId = nil
+            }
+        }
+        // Reset all watch statuses ONLY when app goes to background
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                viewModel.resetAllWatchStatuses()
             }
         }
     }

@@ -8,10 +8,14 @@ protocol AlertServiceProtocol {
 }
 
 class AlertService: AlertServiceProtocol {
+    static let shared = AlertService()
+
     private let dbRef = Database.database().reference()
     private var previousZones: [String: String] = [:]
     private var isMonitoring = false
     private var mappingHandle: DatabaseHandle?
+
+    private init() {}
 
     func startMonitoring() {
         if isMonitoring { return }

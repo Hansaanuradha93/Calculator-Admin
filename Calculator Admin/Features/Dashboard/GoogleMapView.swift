@@ -1,5 +1,6 @@
 import SwiftUI
 import GoogleMaps
+import CoreLocation
 
 struct GoogleMapView: UIViewRepresentable {
     var devices: [Device]
@@ -7,8 +8,13 @@ struct GoogleMapView: UIViewRepresentable {
     var focusedDeviceId: String?
 
     func makeUIView(context: Context) -> GMSMapView {
+        // Start location manager for fallback
+        context.coordinator.locationManager.delegate = context.coordinator
+        context.coordinator.locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        context.coordinator.locationManager.requestWhenInUseAuthorization()
+
         let options = GMSMapViewOptions()
-        let camera = GMSCameraPosition.camera(withLatitude: 37.7749, longitude: -122.4194, zoom: 10.0)
+        let camera = GMSCameraPosition.camera(withLatitude: 0, longitude: 0, zoom: 2.0)
         options.camera = camera
         options.frame = .zero
 
@@ -16,8 +22,10 @@ struct GoogleMapView: UIViewRepresentable {
         mapView.delegate = context.coordinator
         mapView.settings.compassButton = true
         mapView.settings.myLocationButton = false
+        mapView.isMyLocationEnabled = true
         mapView.padding = UIEdgeInsets(top: 80, left: 0, bottom: 100, right: 0)
 
+        context.coordinator.mapView = mapView
         return mapView
     }
 
@@ -57,7 +65,6 @@ struct GoogleMapView: UIViewRepresentable {
                 marker.title = device.name
                 marker.snippet = device.status
 
-                // Build marker icon view
                 let isSelected = selectedDevice?.id == device.id
                 let markerView = buildMarkerView(
                     iconName: iconName,
@@ -79,7 +86,10 @@ struct GoogleMapView: UIViewRepresentable {
             }
         }
 
-        // If a specific device is focused, zoom to it
+        // Camera positioning priority:
+        // 1. Focused device (from "Live Track" navigation)
+        // 2. Fit all device markers
+        // 3. User's current location (fallback when no devices)
         if let focused = focusedCoordinate {
             let camera = GMSCameraPosition.camera(
                 withLatitude: focused.latitude,
@@ -88,10 +98,14 @@ struct GoogleMapView: UIViewRepresentable {
             )
             uiView.animate(to: camera)
             context.coordinator.isFirstLayout = false
-        } else if hasValidCoordinates && devices.count > 0 && context.coordinator.isFirstLayout {
+        } else if hasValidCoordinates && context.coordinator.isFirstLayout {
             let update = GMSCameraUpdate.fit(bounds, withPadding: 80)
             uiView.animate(with: update)
             context.coordinator.isFirstLayout = false
+        } else if !hasValidCoordinates && context.coordinator.isFirstLayout {
+            // No devices — request user location and focus on it
+            context.coordinator.shouldFocusOnUserLocation = true
+            context.coordinator.locationManager.requestLocation()
         }
     }
 
@@ -135,13 +149,18 @@ struct GoogleMapView: UIViewRepresentable {
         Coordinator(self)
     }
 
-    class Coordinator: NSObject, GMSMapViewDelegate {
+    class Coordinator: NSObject, GMSMapViewDelegate, CLLocationManagerDelegate {
         var parent: GoogleMapView
         var isFirstLayout = true
+        var shouldFocusOnUserLocation = false
+        let locationManager = CLLocationManager()
+        weak var mapView: GMSMapView?
 
         init(_ parent: GoogleMapView) {
             self.parent = parent
         }
+
+        // MARK: - Map Delegate
 
         func mapView(_ mapView: GMSMapView, didTap marker: GMSMarker) -> Bool {
             if let device = marker.userData as? Device {
@@ -152,6 +171,38 @@ struct GoogleMapView: UIViewRepresentable {
 
         func mapView(_ mapView: GMSMapView, didTapAt coordinate: CLLocationCoordinate2D) {
             parent.selectedDevice = nil
+        }
+
+        // MARK: - Location Delegate
+
+        func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+            guard shouldFocusOnUserLocation,
+                  let location = locations.last,
+                  let mapView else { return }
+
+            let camera = GMSCameraPosition.camera(
+                withLatitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude,
+                zoom: 14.0
+            )
+            mapView.animate(to: camera)
+            shouldFocusOnUserLocation = false
+            isFirstLayout = false
+        }
+
+        func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+            print("[GoogleMapView] Location error: \(error.localizedDescription)")
+        }
+
+        func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+            switch manager.authorizationStatus {
+            case .authorizedWhenInUse, .authorizedAlways:
+                if shouldFocusOnUserLocation {
+                    manager.requestLocation()
+                }
+            default:
+                break
+            }
         }
     }
 }

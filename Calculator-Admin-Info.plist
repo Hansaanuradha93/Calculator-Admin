@@ -15,5 +15,7 @@
 	</array>
 	<key>GoogleMapsAPIKey</key>
 	<string>AIzaSyBdYy6LEi3HbXe_I3aImKxTJvC_mvs9cOo</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Calculator Admin uses your location to center the map when no tracked devices are available.</string>
 </dict>
 </plist>
