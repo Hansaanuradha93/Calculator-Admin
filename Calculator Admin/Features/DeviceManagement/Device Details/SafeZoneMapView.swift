@@ -3,7 +3,7 @@ import GoogleMaps
 import CoreLocation
 
 /// A Google Maps view for selecting a Safe Zone center point.
-/// Supports: drag the marker, tap to place, and external coordinate updates.
+/// Supports: drag the marker, tap to place, and external coordinate updates from search.
 struct SafeZoneMapView: UIViewRepresentable {
     @Binding var selectedCoordinate: CLLocationCoordinate2D
     var radius: Double
@@ -44,8 +44,8 @@ struct SafeZoneMapView: UIViewRepresentable {
         circle.map = mapView
         context.coordinator.circle = circle
 
-        // Store initial coordinate for change detection
-        context.coordinator.lastExternalCoordinate = initialCenter
+        // Track the current coordinate that the map knows about
+        context.coordinator.currentMapCoordinate = initialCenter
 
         return mapView
     }
@@ -53,26 +53,27 @@ struct SafeZoneMapView: UIViewRepresentable {
     func updateUIView(_ uiView: GMSMapView, context: Context) {
         let coord = context.coordinator
 
-        // Always update the circle radius (slider changes)
+        // Always sync the circle radius (for slider changes)
         coord.circle?.radius = radius
 
-        // Only move marker + camera if the coordinate was changed externally
-        // (e.g., a place suggestion was selected), NOT from a drag
-        let current = selectedCoordinate
-        let last = coord.lastExternalCoordinate
+        // Check if this is a genuine EXTERNAL coordinate change
+        // (e.g. search result selected) vs. a re-render from our own binding update
+        let incoming = selectedCoordinate
+        let current = coord.currentMapCoordinate
 
-        let coordinateChanged = last == nil ||
-            abs(current.latitude - last!.latitude) > 0.00001 ||
-            abs(current.longitude - last!.longitude) > 0.00001
+        let isExternalChange = current == nil ||
+            abs(incoming.latitude - current!.latitude) > 0.0001 ||
+            abs(incoming.longitude - current!.longitude) > 0.0001
 
-        if coordinateChanged && !coord.isDragging {
-            coord.marker?.position = current
-            coord.circle?.position = current
-            coord.lastExternalCoordinate = current
+        // Only move the marker/camera for external changes, never during user interaction
+        if isExternalChange && !coord.isUserInteracting {
+            coord.marker?.position = incoming
+            coord.circle?.position = incoming
+            coord.currentMapCoordinate = incoming
 
             let camera = GMSCameraPosition.camera(
-                withLatitude: current.latitude,
-                longitude: current.longitude,
+                withLatitude: incoming.latitude,
+                longitude: incoming.longitude,
                 zoom: uiView.camera.zoom
             )
             uiView.animate(to: camera)
@@ -87,8 +88,10 @@ struct SafeZoneMapView: UIViewRepresentable {
         var parent: SafeZoneMapView
         var marker: GMSMarker?
         var circle: GMSCircle?
-        var lastExternalCoordinate: CLLocationCoordinate2D?
-        var isDragging = false
+        /// The coordinate the map currently shows — updated by both user and external changes
+        var currentMapCoordinate: CLLocationCoordinate2D?
+        /// True while the user is actively dragging
+        var isUserInteracting = false
 
         init(_ parent: SafeZoneMapView) {
             self.parent = parent
@@ -97,28 +100,26 @@ struct SafeZoneMapView: UIViewRepresentable {
         // MARK: - Drag Events
 
         func mapView(_ mapView: GMSMapView, didBeginDragging marker: GMSMarker) {
-            isDragging = true
+            isUserInteracting = true
         }
 
         func mapView(_ mapView: GMSMapView, didDrag marker: GMSMarker) {
-            // Update circle position live while dragging
             circle?.position = marker.position
         }
 
         func mapView(_ mapView: GMSMapView, didEndDragging marker: GMSMarker) {
-            isDragging = false
             let newCoord = marker.position
             circle?.position = newCoord
-            lastExternalCoordinate = newCoord
+            currentMapCoordinate = newCoord
+            isUserInteracting = false
             parent.selectedCoordinate = newCoord
         }
 
         // MARK: - Tap to Place
-
         func mapView(_ mapView: GMSMapView, didTapAt coordinate: CLLocationCoordinate2D) {
             marker?.position = coordinate
             circle?.position = coordinate
-            lastExternalCoordinate = coordinate
+            currentMapCoordinate = coordinate
             parent.selectedCoordinate = coordinate
         }
     }
