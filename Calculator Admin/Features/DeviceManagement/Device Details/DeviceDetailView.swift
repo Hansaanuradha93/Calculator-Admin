@@ -342,7 +342,7 @@ struct SafeZoneCard: View {
                         radius: zone.radius,
                         initialCenter: coord
                     )
-                    .frame(height: isMapExpanded ? 400 : 220)
+                    .frame(height: isMapExpanded ? 500 : 320)
                     .clipShape(.rect(cornerRadius: 16))
                     .animation(.easeInOut(duration: 0.3), value: isMapExpanded)
                     .id(viewModel.selectedZoneType) // Force map recreation on tab switch

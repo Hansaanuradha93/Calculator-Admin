@@ -46,24 +46,31 @@ class ZoneEditorState: ObservableObject {
     @Published var resolvedAddress = ""
     @Published var isConfigured = false
 
+    /// Prevents overwriting user edits on subsequent stream updates
+    private var hasLoaded = false
+
     init(zoneType: ZoneType) {
         self.zoneType = zoneType
     }
 
-    /// Load existing safe zone data from a device
-    func loadFromDevice(_ device: Device) {
+    /// Load existing safe zone data from a device (only on first load)
+    /// Returns the coordinate if an existing zone was loaded (for reverse geocoding)
+    @discardableResult
+    func loadFromDevice(_ device: Device) -> CLLocationCoordinate2D? {
+        guard !hasLoaded else { return nil }
+        hasLoaded = true
+
         let existingZone: SafeZone? = zoneType == .home ? device.home : device.workplace
 
         if let zone = existingZone {
             coordinate = zone.coordinate
             radius = zone.radius
             isConfigured = true
+            return zone.coordinate
         } else {
-            // Default to device location if no zone configured
-            if coordinate == nil {
-                coordinate = device.coordinate
-            }
+            coordinate = device.coordinate
             isConfigured = false
+            return nil
         }
     }
 
@@ -147,8 +154,14 @@ class DeviceDetailViewModel: ObservableObject {
         streamTask = Task {
             for await updatedDevice in deviceService.deviceStream(id: id) {
                 self.device = updatedDevice
-                homeZone.loadFromDevice(updatedDevice)
-                workZone.loadFromDevice(updatedDevice)
+
+                // Load existing zones from Firebase (only on first update)
+                if let homeCoord = homeZone.loadFromDevice(updatedDevice) {
+                    reverseGeocode(homeCoord, for: homeZone)
+                }
+                if let workCoord = workZone.loadFromDevice(updatedDevice) {
+                    reverseGeocode(workCoord, for: workZone)
+                }
             }
         }
     }
@@ -157,13 +170,12 @@ class DeviceDetailViewModel: ObservableObject {
 
     func onMapCoordinateChanged(_ coordinate: CLLocationCoordinate2D) {
         activeZone.coordinate = coordinate
-        reverseGeocode(coordinate)
+        reverseGeocode(coordinate, for: activeZone)
     }
 
     // MARK: - Reverse Geocoding (Google API)
 
-    private func reverseGeocode(_ coordinate: CLLocationCoordinate2D) {
-        let zone = activeZone
+    private func reverseGeocode(_ coordinate: CLLocationCoordinate2D, for zone: ZoneEditorState) {
         Task {
             let lat = coordinate.latitude
             let lng = coordinate.longitude
