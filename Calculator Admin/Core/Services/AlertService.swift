@@ -50,28 +50,47 @@ class AlertService: AlertServiceProtocol {
                 let currentZone = deviceData["currentSafeZone"] as? String ?? "none"
                 let prevZone = self.previousZones[deviceId] ?? currentZone
 
-                // --- DEPARTURE: home/workplace → none ---
-                if (prevZone == "home" || prevZone == "workplace") && currentZone == "none" {
-                    self.createDepartureAlert(for: deviceId, leftZone: prevZone)
+                // Skip if no change
+                if prevZone == currentZone {
+                    self.previousZones[deviceId] = currentZone
+                    continue
                 }
 
-                // --- ARRIVAL: none → home (HIGH PRIORITY) ---
-                if prevZone == "none" && currentZone == "home" {
+                // --- HANDLE DEPARTURES ---
+                if prevZone == "home" {
+                    // Left Home
+                    self.createDepartureAlert(for: deviceId, leftZone: "home", priority: "low")
+                    self.sendLocalNotification(
+                        title: "🏠 Left Home",
+                        body: "Device \(deviceId.prefix(6)) just left home.",
+                        isHighPriority: false
+                    )
+                } else if prevZone == "workplace" {
+                    // Left Workplace
+                    self.createDepartureAlert(for: deviceId, leftZone: "workplace", priority: "high")
+                    self.sendLocalNotification(
+                        title: "💼 Left Workplace",
+                        body: "Device \(deviceId.prefix(6)) just left the workplace.",
+                        isHighPriority: true
+                    )
+                }
+
+                // --- HANDLE ARRIVALS ---
+                if currentZone == "home" {
+                    // Arrived Home
                     self.createArrivalAlert(for: deviceId, arrivedAt: "Home", priority: "high")
                     self.sendLocalNotification(
                         title: "🏠 Home Arrival",
-                        body: "Device \(deviceId.prefix(6)) has arrived home.",
+                        body: "Device \(deviceId.prefix(6)) just arrived at home.",
                         isHighPriority: true
                     )
                     NotificationCenter.default.post(name: .deviceArrivedHome, object: deviceId)
-                }
-
-                // --- ARRIVAL: none → workplace (LOW PRIORITY, still shows notification) ---
-                if prevZone == "none" && currentZone == "workplace" {
+                } else if currentZone == "workplace" {
+                    // Arrived Workplace
                     self.createArrivalAlert(for: deviceId, arrivedAt: "Workplace", priority: "low")
                     self.sendLocalNotification(
                         title: "💼 Workplace Arrival",
-                        body: "Device \(deviceId.prefix(6)) has arrived at the workplace.",
+                        body: "Device \(deviceId.prefix(6)) arrived at workplace.",
                         isHighPriority: false
                     )
                     NotificationCenter.default.post(name: .deviceArrivedWorkplace, object: deviceId)
@@ -91,14 +110,14 @@ class AlertService: AlertServiceProtocol {
 
     // MARK: - Alert Creation
 
-    private func createDepartureAlert(for deviceId: String, leftZone: String) {
+    private func createDepartureAlert(for deviceId: String, leftZone: String, priority: String) {
         let alertId = UUID().uuidString
         let timestamp = Date().timeIntervalSince1970
         let dict: [String: Any] = [
             "deviceId": deviceId,
-            "message": "Device \(deviceId.prefix(6)) just left \(leftZone.capitalized)!",
+            "message": "Device \(deviceId.prefix(6)) just left \(leftZone == "workplace" ? "the workplace" : "home")!",
             "timestamp": timestamp,
-            "priority": "normal",
+            "priority": priority,
             "type": "departure"
         ]
         dbRef.child("alerts").child(alertId).setValue(dict)
@@ -109,7 +128,7 @@ class AlertService: AlertServiceProtocol {
         let timestamp = Date().timeIntervalSince1970
         let dict: [String: Any] = [
             "deviceId": deviceId,
-            "message": "Device \(deviceId.prefix(6)) arrived at \(zone).",
+            "message": "Device \(deviceId.prefix(6)) \(priority == "high" ? "just arrived at" : "arrived at") \(zone == "Workplace" ? "workplace" : "home").",
             "timestamp": timestamp,
             "priority": priority,
             "type": "arrival"
@@ -123,7 +142,7 @@ class AlertService: AlertServiceProtocol {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = isHighPriority ? .defaultCritical : .default
+        content.sound = .default
 
         if isHighPriority {
             content.interruptionLevel = .timeSensitive
