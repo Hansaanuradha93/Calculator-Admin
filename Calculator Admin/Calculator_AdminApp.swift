@@ -9,10 +9,49 @@ import Combine
 class AppNavigation: ObservableObject {
     @Published var selectedTab: AppTab = .map
     @Published var focusedDeviceId: String?
+    @Published var hasActiveHomeArrival: Bool = false
+
+    private var homeArrivalObserver: Any?
+    private var dismissTimer: DispatchWorkItem?
+
+    init() {
+        // Listen for home arrival events from AlertService
+        homeArrivalObserver = NotificationCenter.default.addObserver(
+            forName: .deviceArrivedHome,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.triggerHomeArrivalPulse()
+        }
+    }
+
+    deinit {
+        if let observer = homeArrivalObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        dismissTimer?.cancel()
+    }
 
     func navigateToMap(focusingDevice deviceId: String) {
         focusedDeviceId = deviceId
         selectedTab = .map
+    }
+
+    func triggerHomeArrivalPulse() {
+        hasActiveHomeArrival = true
+
+        // Auto-dismiss after 8 seconds
+        dismissTimer?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.hasActiveHomeArrival = false
+        }
+        dismissTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
+    }
+
+    func dismissHomeArrivalPulse() {
+        dismissTimer?.cancel()
+        hasActiveHomeArrival = false
     }
 }
 
@@ -80,6 +119,7 @@ struct MainTabView: View {
             }
         }
         .onAppear {
+            AlertService.shared.requestNotificationPermissions()
             AlertService.shared.startMonitoring()
         }
     }

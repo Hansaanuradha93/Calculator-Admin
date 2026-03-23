@@ -7,6 +7,7 @@ struct DashboardView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedDevice: Device?
     @State private var showDeviceList = false
+    @State private var pulseActive = false
 
     var body: some View {
         ZStack {
@@ -17,6 +18,25 @@ struct DashboardView: View {
                 focusedDeviceId: navigation.focusedDeviceId
             )
             .ignoresSafeArea()
+
+            // Subtle red pulsating border for home arrival
+            if navigation.hasActiveHomeArrival {
+                Rectangle()
+                    .fill(.clear)
+                    .border(Color.red.opacity(pulseActive ? 0.5 : 0.15), width: 2.5)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .onAppear {
+                        pulseActive = true
+                    }
+                    .onDisappear {
+                        pulseActive = false
+                    }
+                    .animation(
+                        .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                        value: pulseActive
+                    )
+            }
 
             // Top overlay — search / status bar
             VStack {
@@ -144,7 +164,6 @@ struct DashboardView: View {
 }
 
 // MARK: - Device Info Card
-
 struct DeviceInfoCard: View {
     let device: Device
     var onToggleWatch: (Bool) -> Void

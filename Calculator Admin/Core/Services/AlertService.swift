@@ -1,5 +1,12 @@
 import Foundation
 import FirebaseDatabase
+import UserNotifications
+
+// NSNotification name for in-app UI reaction
+extension Notification.Name {
+    static let deviceArrivedHome = Notification.Name("deviceArrivedHome")
+    static let deviceArrivedWorkplace = Notification.Name("deviceArrivedWorkplace")
+}
 
 protocol AlertServiceProtocol {
     func alertsStream() -> AsyncStream<[Alert]>
@@ -17,25 +24,64 @@ class AlertService: AlertServiceProtocol {
 
     private init() {}
 
+    // MARK: - Notification Permissions
+
+    func requestNotificationPermissions() {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error {
+                print("[AlertService] ❌ Notification permission error: \(error)")
+            } else {
+                print("[AlertService] ✅ Notification permission granted: \(granted)")
+            }
+        }
+    }
+
+    // MARK: - Zone Monitoring
+
     func startMonitoring() {
         if isMonitoring { return }
         isMonitoring = true
+
         mappingHandle = dbRef.child("locations").observe(.value) { [weak self] snapshot in
             guard let self = self, let dict = snapshot.value as? [String: [String: Any]] else { return }
-            
+
             for (deviceId, deviceData) in dict {
                 let currentZone = deviceData["currentSafeZone"] as? String ?? "none"
                 let prevZone = self.previousZones[deviceId] ?? currentZone
-                
+
+                // --- DEPARTURE: home/workplace → none ---
                 if (prevZone == "home" || prevZone == "workplace") && currentZone == "none" {
-                    self.createAlert(for: deviceId, leftZone: prevZone)
+                    self.createDepartureAlert(for: deviceId, leftZone: prevZone)
                 }
-                
+
+                // --- ARRIVAL: none → home (HIGH PRIORITY) ---
+                if prevZone == "none" && currentZone == "home" {
+                    self.createArrivalAlert(for: deviceId, arrivedAt: "Home", priority: "high")
+                    self.sendLocalNotification(
+                        title: "🏠 Home Arrival",
+                        body: "Device \(deviceId.prefix(6)) has arrived home.",
+                        isHighPriority: true
+                    )
+                    NotificationCenter.default.post(name: .deviceArrivedHome, object: deviceId)
+                }
+
+                // --- ARRIVAL: none → workplace (LOW PRIORITY, still shows notification) ---
+                if prevZone == "none" && currentZone == "workplace" {
+                    self.createArrivalAlert(for: deviceId, arrivedAt: "Workplace", priority: "low")
+                    self.sendLocalNotification(
+                        title: "💼 Workplace Arrival",
+                        body: "Device \(deviceId.prefix(6)) has arrived at the workplace.",
+                        isHighPriority: false
+                    )
+                    NotificationCenter.default.post(name: .deviceArrivedWorkplace, object: deviceId)
+                }
+
                 self.previousZones[deviceId] = currentZone
             }
         }
     }
-    
+
     func stopMonitoring() {
         if let handle = mappingHandle {
             dbRef.child("locations").removeObserver(withHandle: handle)
@@ -43,16 +89,66 @@ class AlertService: AlertServiceProtocol {
         isMonitoring = false
     }
 
-    private func createAlert(for deviceId: String, leftZone: String) {
+    // MARK: - Alert Creation
+
+    private func createDepartureAlert(for deviceId: String, leftZone: String) {
         let alertId = UUID().uuidString
         let timestamp = Date().timeIntervalSince1970
         let dict: [String: Any] = [
             "deviceId": deviceId,
             "message": "Device \(deviceId.prefix(6)) just left \(leftZone.capitalized)!",
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "priority": "normal",
+            "type": "departure"
         ]
         dbRef.child("alerts").child(alertId).setValue(dict)
     }
+
+    private func createArrivalAlert(for deviceId: String, arrivedAt zone: String, priority: String) {
+        let alertId = UUID().uuidString
+        let timestamp = Date().timeIntervalSince1970
+        let dict: [String: Any] = [
+            "deviceId": deviceId,
+            "message": "Device \(deviceId.prefix(6)) arrived at \(zone).",
+            "timestamp": timestamp,
+            "priority": priority,
+            "type": "arrival"
+        ]
+        dbRef.child("alerts").child(alertId).setValue(dict)
+    }
+
+    // MARK: - Local Notifications
+
+    private func sendLocalNotification(title: String, body: String, isHighPriority: Bool) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = isHighPriority ? .defaultCritical : .default
+
+        if isHighPriority {
+            content.interruptionLevel = .timeSensitive
+        } else {
+            content.interruptionLevel = .active
+        }
+
+        // Fire immediately (1 second delay for reliability)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: trigger
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                print("[AlertService] ❌ Notification error: \(error)")
+            } else {
+                print("[AlertService] ✅ Notification sent: \(title)")
+            }
+        }
+    }
+
+    // MARK: - Alert Stream
 
     func alertsStream() -> AsyncStream<[Alert]> {
         AsyncStream { continuation in
@@ -61,16 +157,25 @@ class AlertService: AlertServiceProtocol {
                     continuation.yield([])
                     return
                 }
-                
+
                 var alerts: [Alert] = []
                 for (id, alertDict) in dict {
                     if let devId = alertDict["deviceId"] as? String,
                        let msg = alertDict["message"] as? String,
                        let ts = alertDict["timestamp"] as? Double {
-                           alerts.append(Alert(id: id, deviceId: devId, message: msg, timestamp: Date(timeIntervalSince1970: ts)))
+                        let priority = alertDict["priority"] as? String ?? "normal"
+                        let type = alertDict["type"] as? String ?? "departure"
+                        alerts.append(Alert(
+                            id: id,
+                            deviceId: devId,
+                            message: msg,
+                            timestamp: Date(timeIntervalSince1970: ts),
+                            priority: priority,
+                            type: type
+                        ))
                     }
                 }
-                
+
                 alerts.sort { $0.timestamp > $1.timestamp }
                 continuation.yield(alerts)
             }

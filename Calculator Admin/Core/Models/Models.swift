@@ -52,6 +52,8 @@ struct Alert: Identifiable, Codable, Equatable {
     var deviceId: String
     var message: String
     var timestamp: Date
+    var priority: String    // "high", "low", "normal"
+    var type: String        // "arrival", "departure"
 }
 
 struct AdminUser: Identifiable, Codable {
