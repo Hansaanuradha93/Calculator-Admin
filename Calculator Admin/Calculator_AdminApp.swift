@@ -59,10 +59,15 @@ enum AppTab: Hashable {
     case map, devices, alerts, settings
 }
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+import UserNotifications
+
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
+
+        // Set the notification delegate to handle foreground notifications
+        UNUserNotificationCenter.current().delegate = self
 
         // Read Google Maps API Key from Info.plist
         if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleMapsAPIKey") as? String {
@@ -72,6 +77,26 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
 
         return true
+    }
+
+    // This method allows notifications to be presented (as banners/sound) even while the app is in the foreground.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // Show everything: banner, sound, and update the badge
+        completionHandler([.banner, .list, .sound, .badge])
+    }
+
+    // Handles user interaction (e.g., tapping the notification)
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        // Example: could navigate to the Alerts tab on tap
+        completionHandler()
     }
 }
 
