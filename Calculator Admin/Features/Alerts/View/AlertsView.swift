@@ -62,7 +62,7 @@ struct AlertsView: View {
                         .foregroundStyle(.secondary)
                     Text("•")
                         .foregroundStyle(.secondary)
-                    Text(alert.timestamp, style: .relative)
+                    Text(relativeTime(alert.timestamp))
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -127,5 +127,11 @@ struct AlertsView: View {
                 shadowColor: .black.opacity(0.05)
             )
         }
+    }
+
+    private func relativeTime(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: .now)
     }
 }
