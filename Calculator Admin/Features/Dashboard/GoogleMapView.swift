@@ -49,12 +49,13 @@ struct GoogleMapView: UIViewRepresentable {
                 coordinate = work.coordinate
                 iconName = "briefcase.fill"
                 color = UIColor.systemOrange
-            } else if device.currentSafeZone == "none" {
-                coordinate = device.coordinate
-                iconName = "exclamationmark.triangle.fill"
-                color = UIColor.systemRed
-            } else {
-                coordinate = device.coordinate
+            } else if let lat = device.latitude, let lng = device.longitude {
+                // Only use device's live coordinate when lat/lng actually exist
+                coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+                if device.currentSafeZone == "none" {
+                    iconName = "exclamationmark.triangle.fill"
+                    color = UIColor.systemRed
+                }
             }
 
             if let coord = coordinate {
@@ -86,10 +87,26 @@ struct GoogleMapView: UIViewRepresentable {
             }
         }
 
+        // Determine the coordinate of the currently selected device
+        var selectedCoordinate: CLLocationCoordinate2D?
+        if let selected = selectedDevice {
+            // Find the coordinate we just plotted for the selected device
+            for device in devices where device.id == selected.id {
+                if device.currentSafeZone == "home", let home = device.home {
+                    selectedCoordinate = home.coordinate
+                } else if device.currentSafeZone == "workplace", let work = device.workplace {
+                    selectedCoordinate = work.coordinate
+                } else if let lat = device.latitude, let lng = device.longitude {
+                    selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+                }
+            }
+        }
+
         // Camera positioning priority:
-        // 1. Focused device (from "Live Track" navigation)
-        // 2. Fit all device markers
-        // 3. User's current location (fallback when no devices)
+        // 1. Focused device (from "Live Track" navigation) — one-time jump
+        // 2. Selected device — continuously follow as location updates
+        // 3. First load — fit all device markers
+        // 4. Admin's current location (only when NO device has valid coordinates)
         if let focused = focusedCoordinate {
             let camera = GMSCameraPosition.camera(
                 withLatitude: focused.latitude,
@@ -97,14 +114,25 @@ struct GoogleMapView: UIViewRepresentable {
                 zoom: 16.0
             )
             uiView.animate(to: camera)
-            context.coordinator.isFirstLayout = false
-        } else if hasValidCoordinates && context.coordinator.isFirstLayout {
+            context.coordinator.hasFocusedOnDevices = true
+        } else if let coord = selectedCoordinate {
+            // Continuously follow the selected device
+            let camera = GMSCameraPosition.camera(
+                withLatitude: coord.latitude,
+                longitude: coord.longitude,
+                zoom: max(uiView.camera.zoom, 15.0)
+            )
+            uiView.animate(to: camera)
+            context.coordinator.hasFocusedOnDevices = true
+        } else if hasValidCoordinates && !context.coordinator.hasFocusedOnDevices {
+            // First time we see valid device coordinates — fit all
             let update = GMSCameraUpdate.fit(bounds, withPadding: 80)
             uiView.animate(with: update)
-            context.coordinator.isFirstLayout = false
-        } else if !hasValidCoordinates && context.coordinator.isFirstLayout {
-            // No devices — request user location and focus on it
+            context.coordinator.hasFocusedOnDevices = true
+        } else if !hasValidCoordinates && !context.coordinator.hasFocusedOnDevices && !context.coordinator.hasFallenBackToAdmin {
+            // No device coordinates at all — fall back to admin's own location
             context.coordinator.shouldFocusOnUserLocation = true
+            context.coordinator.hasFallenBackToAdmin = true
             context.coordinator.locationManager.requestLocation()
         }
     }
@@ -151,7 +179,8 @@ struct GoogleMapView: UIViewRepresentable {
 
     class Coordinator: NSObject, GMSMapViewDelegate, CLLocationManagerDelegate {
         var parent: GoogleMapView
-        var isFirstLayout = true
+        var hasFocusedOnDevices = false
+        var hasFallenBackToAdmin = false
         var shouldFocusOnUserLocation = false
         let locationManager = CLLocationManager()
         weak var mapView: GMSMapView?
@@ -187,7 +216,8 @@ struct GoogleMapView: UIViewRepresentable {
             )
             mapView.animate(to: camera)
             shouldFocusOnUserLocation = false
-            isFirstLayout = false
+            // Note: hasFocusedOnDevices stays false so device coordinates
+            // can still override if they arrive later
         }
 
         func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
