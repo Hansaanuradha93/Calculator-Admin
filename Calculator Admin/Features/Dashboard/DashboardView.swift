@@ -19,23 +19,30 @@ struct DashboardView: View {
             )
             .ignoresSafeArea()
 
-            // Subtle red pulsating border for home arrival
+            // Prominent red pulsating border for home arrival
             if navigation.hasActiveHomeArrival {
-                Rectangle()
-                    .fill(.clear)
-                    .border(Color.red.opacity(pulseActive ? 0.5 : 0.15), width: 2.5)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-                    .onAppear {
-                        pulseActive = true
-                    }
-                    .onDisappear {
-                        pulseActive = false
-                    }
-                    .animation(
-                        .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                        value: pulseActive
-                    )
+                ZStack {
+                    // Outer glow effect
+                    Rectangle()
+                        .stroke(Color.red.opacity(pulseActive ? 0.6 : 0.1), lineWidth: 12)
+                        .blur(radius: 8)
+                    
+                    // Main solid border
+                    Rectangle()
+                        .stroke(Color.red.opacity(pulseActive ? 0.85 : 0.2), lineWidth: 5)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .onAppear {
+                    pulseActive = true
+                }
+                .onDisappear {
+                    pulseActive = false
+                }
+                .animation(
+                    .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+                    value: pulseActive
+                )
             }
 
             // Top overlay — search / status bar

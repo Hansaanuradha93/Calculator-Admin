@@ -40,13 +40,13 @@ class AppNavigation: ObservableObject {
     func triggerHomeArrivalPulse() {
         hasActiveHomeArrival = true
 
-        // Auto-dismiss after 8 seconds
+        // Auto-dismiss after 5 minutes (300 seconds)
         dismissTimer?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.hasActiveHomeArrival = false
         }
         dismissTimer = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 300, execute: work)
     }
 
     func dismissHomeArrivalPulse() {
