@@ -14,7 +14,7 @@ struct AlertsView: View {
                 }
                 .padding()
             }
-            .background(Color("BackgroundLight").ignoresSafeArea()) // Uses #f8f7f5
+            .background(Color(.systemBackground).ignoresSafeArea())
             .navigationTitle("Alerts Feed")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {

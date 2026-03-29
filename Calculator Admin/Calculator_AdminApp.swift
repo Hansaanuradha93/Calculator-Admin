@@ -62,40 +62,50 @@ enum AppTab: Hashable {
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
 
-        // Set the notification delegate to handle foreground notifications
         UNUserNotificationCenter.current().delegate = self
 
-        // Read Google Maps API Key from Info.plist
         if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GoogleMapsAPIKey") as? String {
             GMSServices.provideAPIKey(apiKey)
-        } else {
-            print("Error: GoogleMapsAPIKey not found in Info.plist")
         }
 
         return true
     }
 
-    // This method allows notifications to be presented (as banners/sound) even while the app is in the foreground.
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        // Start a background task to keep the Firebase listener alive for a few more minutes
+        backgroundTask = application.beginBackgroundTask(withName: "FirebaseMonitoring") {
+            application.endBackgroundTask(self.backgroundTask)
+            self.backgroundTask = .invalid
+        }
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        // End the task if we return to the foreground
+        if backgroundTask != .invalid {
+            application.endBackgroundTask(backgroundTask)
+            backgroundTask = .invalid
+        }
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Show everything: banner, sound, and update the badge
         completionHandler([.banner, .list, .sound, .badge])
     }
 
-    // Handles user interaction (e.g., tapping the notification)
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        // Example: could navigate to the Alerts tab on tap
         completionHandler()
     }
 }

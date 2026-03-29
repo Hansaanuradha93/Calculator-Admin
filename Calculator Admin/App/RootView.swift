@@ -8,7 +8,7 @@ struct RootView: View {
             if authViewModel.isLoading && !authViewModel.isAuthenticated {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color("BackgroundLight").ignoresSafeArea())
+                    .background(Color(.systemBackground).ignoresSafeArea())
             } else if authViewModel.isAuthenticated {
                 MainTabView()
             } else {

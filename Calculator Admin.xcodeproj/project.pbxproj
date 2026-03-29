@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10859F82F78F8A0000801B8 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = A10859F72F78F8A0000801B8 /* FirebaseMessaging */; };
 		A15F23412F6C557500344E00 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A15F23402F6C557500344E00 /* GoogleService-Info.plist */; };
 		A15F23462F6C5BFC00344E00 /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = A15F23452F6C5BFC00344E00 /* GoogleMaps */; };
 		A16614E42F6B1E120065F00C /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = A16614E32F6B1E120065F00C /* FirebaseAnalytics */; };
@@ -39,6 +40,7 @@
 			files = (
 				A16614EC2F6B1E120065F00C /* FirebaseDatabase in Frameworks */,
 				A16614E42F6B1E120065F00C /* FirebaseAnalytics in Frameworks */,
+				A10859F82F78F8A0000801B8 /* FirebaseMessaging in Frameworks */,
 				A16614EA2F6B1E120065F00C /* FirebaseCrashlytics in Frameworks */,
 				A16614F32F6B23AA0065F00C /* GoogleSignInSwift in Frameworks */,
 				A16614E82F6B1E120065F00C /* FirebaseCore in Frameworks */,
@@ -52,12 +54,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A10859F62F78F8A0000801B8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		A17357DA2F5DE4630064EC00 = {
 			isa = PBXGroup;
 			children = (
 				A15F23402F6C557500344E00 /* GoogleService-Info.plist */,
 				A17357E52F5DE4630064EC00 /* Calculator Admin */,
 				A17357FA2F5DF0990064EC00 /* Calculator Admin.app */,
+				A10859F62F78F8A0000801B8 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -90,6 +100,7 @@
 				A16614F02F6B23AA0065F00C /* GoogleSignIn */,
 				A16614F22F6B23AA0065F00C /* GoogleSignInSwift */,
 				A15F23452F6C5BFC00344E00 /* GoogleMaps */,
+				A10859F72F78F8A0000801B8 /* FirebaseMessaging */,
 			);
 			productName = "Calculator Admin";
 			productReference = A17357FA2F5DF0990064EC00 /* Calculator Admin.app */;
@@ -396,6 +407,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A10859F72F78F8A0000801B8 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A16614E22F6B1E120065F00C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
 		A15F23452F6C5BFC00344E00 /* GoogleMaps */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A15F23442F6C5BFC00344E00 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */;

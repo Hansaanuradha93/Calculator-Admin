@@ -15,5 +15,9 @@
 	</array>
 	<key>GoogleMapsAPIKey</key>
 	<string>AIzaSyBdYy6LEi3HbXe_I3aImKxTJvC_mvs9cOo</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
